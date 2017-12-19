@@ -4,7 +4,6 @@ import IO;
 import ParseTree;
 import String;
 import util::FileSystem;
-import sqat::series1::Comments;
 
 /* 
 
@@ -38,8 +37,44 @@ Bonus:
 alias SLOC = map[loc file, int sloc];
 
 SLOC sloc(loc project) {
+	result = ();
+	for (f <- find(project, "rsc")) {
+		result = result + slocFile(f);
+	}
+	return result;
+}
+
+SLOC slocFile(loc fileLoc) {
   SLOC result = ();
-  // implement here
+  str contents = readFile(fileLoc);
+  contents = removeComments(contents);
+  contents = removeEmptyLines(contents);
+  list[str] lines = split("\n", contents);
+  result[fileLoc] = size(lines);
   return result;
-}             
-             
+}
+
+str removeComments(str fileLiteral) {
+	contents = fileLiteral;
+	while (/<comment:\/\*(\*+[^\*\/]|[^\*])*\**\*\/>/ := contents) {
+		contents = replaceAll(contents, comment, "");
+	}
+	while (/<comment:\/\/[^\n]*>/ := contents) {
+		contents = replaceAll(contents, comment, "");
+	}
+	return contents;
+}
+
+str removeEmptyLines(str fileLiteral) {
+	contents = fileLiteral;
+	while (/<empty:\n[\s]*\n>/ := contents) {
+		contents = replaceAll(contents, empty, "\n");
+	}
+	return contents;
+}
+
+void main() {
+  loc jpacman = |project://jpacman/|;
+  loc example = |project://sqat-analysis/src/sqat/series1/SlocExample.rsc|;
+  println(sloc(example));
+}
