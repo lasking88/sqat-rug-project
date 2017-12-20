@@ -1,6 +1,8 @@
 module sqat::series1::A1_SLOC
 
 import IO;
+import Map;
+import Set;
 import ParseTree;
 import String;
 import util::FileSystem;
@@ -38,7 +40,7 @@ alias SLOC = map[loc file, int sloc];
 
 SLOC sloc(loc project) {
 	result = ();
-	for (f <- find(project, "rsc")) {
+	for (f <- find(project, "java")) {
 		result = result + slocFile(f);
 	}
 	return result;
@@ -67,14 +69,40 @@ str removeComments(str fileLiteral) {
 
 str removeEmptyLines(str fileLiteral) {
 	contents = fileLiteral;
-	while (/<empty:\n[\s]*\n>/ := contents) {
+	while (/<empty:\n[\s]+>/ := contents) {
 		contents = replaceAll(contents, empty, "\n");
 	}
 	return contents;
 }
 
+void printMax(SLOC s) {
+	li = toList(s);
+	int idx =  indexOf(li<1>, max(li<1>));
+	println(li[idx]);
+}
+
+int sumSloc(SLOC s) {
+	int sum = 0, len = size(s);
+	for (l <- s<0>) {
+		sum += s[l];
+	}
+	return sum;
+}
+
 void main() {
   loc jpacman = |project://jpacman/|;
+  loc jpacmanTest = |project://jpacman/src/test/|;
+  loc jpacmanActual = |project://jpacman/src/main/|;
   loc example = |project://sqat-analysis/src/sqat/series1/SlocExample.rsc|;
-  println(sloc(example));
+  SLOC slocJpacman = sloc(jpacman);
+  printMax(slocJpacman); // print max lines of code with location
+  println(sumSloc(slocJpacman)); // print size of project
+  // Since it consists of 2459 LOC, it is ranked as ++ in terms of SIG model.
+  
+  sumActualSloc = sumSloc(sloc(jpacmanActual));
+  sumTestSloc = sumSloc(sloc(jpacmanTest));
+  
+  println("Actual Code : <sumActualSloc>");
+  println("Test Code : <sumTestSloc>");
+  println(sumActualSloc / sumTestSloc); // ratio between actual code and test code
 }
