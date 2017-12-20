@@ -2,6 +2,9 @@ module sqat::series1::A2_McCabe
 
 import lang::java::jdt::m3::AST;
 import IO;
+import Map;
+import Set;
+import List;
 
 /*
 
@@ -39,19 +42,62 @@ set[Declaration] jpacmanASTs() = createAstsFromEclipseProject(|project://jpacman
 
 alias CC = rel[loc method, int cc];
 
+int calcCC(Statement impl) {
+    int result = 1;
+    visit (impl) {
+    	case \block(list[Statement] l) :
+    		for (Statement s <- l) {
+    			result += calcCC(s);
+    		}
+        case \if(_,_) : result += 1;
+        case \if(_,_,_) : result += 1;
+        case \case(_) : result += 1;
+        case \do(_,_) : result += 1;
+        case \while(_,_) : result += 1;
+        case \for(_,_,_) : result += 1;
+        case \for(_,_,_,_) : result += 1;
+        case foreach(_,_,_) : result += 1;
+        case \catch(_,_): result += 1;
+        case \conditional(_,_,_): result += 1;
+        case infix(_,"&&",_) : result += 1;
+        case infix(_,"||",_) : result += 1;
+    }
+    return result;
+}
+
 CC cc(set[Declaration] decls) {
   CC result = {};
-  
-  // to be done
-  
+  visit(decls) {
+  	case m:\method(_,_,_,_,(Statement)s): 
+  		result[m.decl] = calcCC(s);
+  }
   return result;
 }
 
 alias CCDist = map[int cc, int freq];
 
 CCDist ccDist(CC cc) {
-  // to be done
+	CCDist ret = ();
+	for (c <- cc) {
+		int cyclo = c[1];
+		if (cyclo in ret) {
+			ret[cyclo] += 1;
+		} else {
+			ret[cyclo] = 0;
+		}			
+	}
+	return ret;
 }
 
+void printMax(CC s) {
+	li = toList(s);
+	int idx =  indexOf(li<1>, max(li<1>));
+	println(li[idx]);
+}
 
-
+void main() {
+	set[Declaration] d = jpacmanASTs();
+	CC cycloComp = cc(d);
+	CCDist cycloCompDist = ccDist(cycloComp);
+	printMax(cycloComp);
+}

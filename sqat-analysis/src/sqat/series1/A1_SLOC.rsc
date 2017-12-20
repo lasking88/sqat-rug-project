@@ -72,6 +72,7 @@ str removeEmptyLines(str fileLiteral) {
 	while (/<empty:\n[\s]+>/ := contents) {
 		contents = replaceAll(contents, empty, "\n");
 	}
+	if (contents[0] == "\n") contents = contents[1..]; 
 	return contents;
 }
 
