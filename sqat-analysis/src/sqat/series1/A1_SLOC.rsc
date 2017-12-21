@@ -6,6 +6,7 @@ import Set;
 import ParseTree;
 import String;
 import util::FileSystem;
+import util::Math;
 
 /* 
 
@@ -38,72 +39,56 @@ Bonus:
 
 alias SLOC = map[loc file, int sloc];
 
-SLOC sloc(loc project) {
-	result = ();
-	for (f <- find(project, "java")) {
-		result = result + slocFile(f);
-	}
-	return result;
-}
+SLOC sloc(loc project) =
+	(() | it + slocFile(f) | f<-find(project, "java"));
 
-SLOC slocFile(loc fileLoc) {
-  SLOC result = ();
-  str contents = readFile(fileLoc);
-  contents = removeComments(contents);
-  contents = removeEmptyLines(contents);
-  list[str] lines = split("\n", contents);
-  result[fileLoc] = size(lines);
-  return result;
-}
+SLOC slocFile(loc fileLoc) =
+	(fileLoc: size(split("\n", preProcess(readFile(fileLoc)))));
 
-str removeComments(str fileLiteral) {
+str preProcess(str fileLiteral) {
 	contents = fileLiteral;
+	/* Remove C-style comments */
 	while (/<comment:\/\*(\*+[^\*\/]|[^\*])*\**\*\/>/ := contents) {
 		contents = replaceAll(contents, comment, "");
 	}
+	/* Remove single line of comment */
 	while (/<comment:\/\/[^\n]*>/ := contents) {
 		contents = replaceAll(contents, comment, "");
 	}
-	return contents;
-}
-
-str removeEmptyLines(str fileLiteral) {
-	contents = fileLiteral;
+	/**
+	 * Substitute multi-whitespaces (which contains at least a '\n') 
+	 * with a new line character
+	 **/
 	while (/<empty:\n[\s]+>/ := contents) {
 		contents = replaceAll(contents, empty, "\n");
 	}
+	/* Remove a starting '\n' if exists */
 	if (contents[0] == "\n") contents = contents[1..]; 
 	return contents;
 }
 
-void printMax(SLOC s) {
-	li = toList(s);
-	int idx =  indexOf(li<1>, max(li<1>));
-	println(li[idx]);
-}
-
-int sumSloc(SLOC s) {
-	int sum = 0, len = size(s);
-	for (l <- s<0>) {
-		sum += s[l];
-	}
-	return sum;
-}
+SLOC getMax(SLOC s) = 
+	(location: s[location] | location <- s, s[location] >= max(s<1>));
+	
+int sumSloc(SLOC s) = 
+	(0 | it + s[location] | location <- s);
 
 void main() {
   loc jpacman = |project://jpacman/|;
-  loc jpacmanTest = |project://jpacman/src/test/|;
-  loc jpacmanActual = |project://jpacman/src/main/|;
-  loc example = |project://sqat-analysis/src/sqat/series1/SlocExample.rsc|;
-  SLOC slocJpacman = sloc(jpacman);
-  printMax(slocJpacman); // print max lines of code with location
-  println(sumSloc(slocJpacman)); // print size of project
-  // Since it consists of 2459 LOC, it is ranked as ++ in terms of SIG model.
+  loc jpacmanTest = |project://jpacman/src/test/|; // location for test code
+  loc jpacmanActual = |project://jpacman/src/main/|; // location for actual code
+  
+  SLOC slocJpacman = sloc(jpacman); // SLOC of jpacman
+  SLOC maxSLOC = getMax(slocJpacman); // max SLOC(s) of jpacman
+  println("Maximum SLOC of jpacman project : <maxSLOC>");
+  int sizeSLOC = sumSloc(slocJpacman); // size of jpacman project
+  println("Total size of jpacman project: <sizeSLOC> lines");
+  // Since it consists of 2458 LOC, it is ranked as ++ in terms of SIG model.
   
   sumActualSloc = sumSloc(sloc(jpacmanActual));
   sumTestSloc = sumSloc(sloc(jpacmanTest));
   
-  println("Actual Code : <sumActualSloc>");
-  println("Test Code : <sumTestSloc>");
-  println(sumActualSloc / sumTestSloc); // ratio between actual code and test code
+  println("Actual Code : <sumActualSloc> lines");
+  println("Test Code : <sumTestSloc> lines");
+  println("Ratio : <toReal(sumActualSloc) / toReal(sumTestSloc)>"); // ratio between actual code and test code
 }
