@@ -43,7 +43,7 @@ SLOC sloc(loc project) =
 	(() | it + slocFile(f) | f<-find(project, "java"));
 
 SLOC slocFile(loc fileLoc) =
-	(fileLoc: size(split("\n", preProcess(readFile(fileLoc)))));
+	(fileLoc:size(split("\n", preProcess(readFile(fileLoc)))));
 
 str preProcess(str fileLiteral) {
 	contents = fileLiteral;

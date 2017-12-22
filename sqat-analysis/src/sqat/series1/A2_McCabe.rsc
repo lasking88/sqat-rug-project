@@ -1,10 +1,14 @@
 module sqat::series1::A2_McCabe
 
 import lang::java::jdt::m3::AST;
+import util::ValueUI;
 import IO;
 import Map;
 import Set;
 import List;
+import util::Math;
+import sqat::series1::A1_SLOC;
+import analysis::statistics::Correlation;
 
 /*
 
@@ -38,17 +42,13 @@ Bonus
 
 */
 
-set[Declaration] jpacmanASTs() = createAstsFromEclipseProject(|project://jpacman|, true); 
+set[Declaration] jpacmanASTs() = createAstsFromEclipseProject(|project://jpacman|, true);
 
 alias CC = rel[loc method, int cc];
 
 int calcCC(Statement impl) {
     int result = 1;
     visit (impl) {
-    	case \block(list[Statement] l) :
-    		for (Statement s <- l) {
-    			result += calcCC(s);
-    		}
         case \if(_,_) : result += 1;
         case \if(_,_,_) : result += 1;
         case \case(_) : result += 1;
@@ -68,36 +68,67 @@ int calcCC(Statement impl) {
 CC cc(set[Declaration] decls) {
   CC result = {};
   visit(decls) {
-  	case m:\method(_,_,_,_,(Statement)s): 
-  		result[m.decl] = calcCC(s);
+  	case c:\constructor(_,_,_,Statement s):
+  		result[c.decl] = calcCC(s);
+  	case m:\method(_,_,_,_,b:\block):
+  		result[m.decl] = calcCC(b);
   }
   return result;
 }
 
 alias CCDist = map[int cc, int freq];
 
-CCDist ccDist(CC cc) {
-	CCDist ret = ();
-	for (c <- cc) {
-		int cyclo = c[1];
-		if (cyclo in ret) {
-			ret[cyclo] += 1;
-		} else {
-			ret[cyclo] = 0;
-		}			
-	}
-	return ret;
+CCDist ccDist(CC cc) =
+	(() | it + (idx:size(li[idx])) | idx <- cc<1>, li := cc<1,0>);
+	
+CC getMax(CC c) =
+	({} | it + item | item <- c, item[1] >= max(c<1>));
+	
+int getMethodSLOC(CC c, int minimum, int maximum) =
+	(0 | it + slocFile(mthd)[mthd] | <mthd,val> <- c, minimum < val, val <= maximum);
+
+lrel[int,int] getCCPerSloc(CC c) =
+	[<val, slocFile(mthd)[mthd]> | <mthd,val> <- c];
+	
+map[str,int] getRelSLOC(CC c) {
+	map[str,int] relSloc = ();
+	relSloc["simple"] = getMethodSLOC(c, 0, 10);
+	relSloc["moderate"] = getMethodSLOC(c, 10, 20);
+	relSloc["high"] = getMethodSLOC(c, 20, 50);
+	relSloc["veryHigh"] = getMethodSLOC(c, 50, 1000);
+	return relSloc;
+}
+	
+void anaylizeASTs(set[Declaration] d) {
+	CC cycloComp = cc(d);
+	CCDist cycloCompDist = ccDist(cycloComp);
+	CC maxCC = getMax(cycloComp);
+	println("Methods with max CC : <maxCC>");
+	int sizeOfJpac = sumSloc(sloc(|project://jpacman/|));
+	
+	map[str,int] mthdSLOC = getRelSLOC(cycloComp);
+	println("=========== Jpacman Relative LOC ===========");
+	println("  Simple  | <100 * mthdSLOC["simple"] / toReal(sizeOfJpac)> %");
+	println(" Moderate | <100 * mthdSLOC["moderate"] / toReal(sizeOfJpac)> %");
+	println("   High   | <100 * mthdSLOC["high"] / toReal(sizeOfJpac)> %");
+	println(" Very High| <100 * mthdSLOC["veryHigh"] / toReal(sizeOfJpac)> %");
+	println("============================================");
+	
+	ccPerSloc = getCCPerSloc(cycloComp);
+	println("Pearson correlation : <PearsonsCorrelation(ccPerSloc)>");
+	println("Spearman Correlation : <SpearmansCorrelation(ccPerSloc)>");
 }
 
-void printMax(CC s) {
-	li = toList(s);
-	int idx =  indexOf(li<1>, max(li<1>));
-	println(li[idx]);
-}
+set[Declaration] getPartialASTs(set[Declaration] project, loc biggerLoc)
+	= ({} | it + d | d <- project, \compilationUnit(_,_,_,src=s) := d, s < biggerLoc);
 
 void main() {
 	set[Declaration] d = jpacmanASTs();
-	CC cycloComp = cc(d);
-	CCDist cycloCompDist = ccDist(cycloComp);
-	printMax(cycloComp);
+	println("Jpacman project");
+	anaylizeASTs(d);
+	/* Accoring to the SIG Model, jpacman prject is ranked as ++ */
+	
+	println("Jpacman project: Actual code");
+	d2 = getPartialASTs(d, |project://jpacman/src/main/java/|);
+	anaylizeASTs(d2);
 }
