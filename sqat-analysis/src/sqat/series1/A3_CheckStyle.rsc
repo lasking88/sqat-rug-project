@@ -1,7 +1,14 @@
 module sqat::series1::A3_CheckStyle
 
-import lang::java::\syntax::Java15;
+import Java17ish;
 import Message;
+import util::ResourceMarkers;
+import util::FileSystem;
+import ParseTree;
+import sqat::series1::A1_SLOC;
+import IO;
+import Set;
+import util::ValueUI;
 
 /*
 
@@ -41,11 +48,90 @@ Bonus:
 
 */
 
-set[Message] checkStyle(loc project) {
-  set[Message] result = {};
-  
-  // to be done
-  // implement each check in a separate function called here. 
-  
-  return result;
+/* String Literal Comparision */
+set[loc] stringCompLocs(start[CompilationUnit] cu) {
+	sel = {};
+	visit(cu) {
+		case e:(Expr)`<Expr _> == <StringLiteral sl>` :
+			sel += e@\loc;
+		case e:(Expr)`<Expr _> != <StringLiteral sl>` :
+			sel += e@\loc;
+		case e:(Expr)`<StringLiteral sl> == <Expr _>` :
+			sel += e@\loc;
+		case e:(Expr)`<StringLiteral sl> != <Expr _>` :
+			sel += e@\loc;
+	}
+	return sel;
+}
+
+set[Message] warningsForStringComp(set[loc] pnl) 
+  = { warning("String literal should not used with == or !=", l) | l <- pnl};
+
+set[Message] checkStringComp(loc project) {
+	sc = {};
+	for (loc l <- files(project), l.extension == "java") {
+    	sc += stringCompLocs(parse(#start[CompilationUnit], l, allowAmbiguity=true));
+    }
+	return warningsForStringComp(sc);
+}
+
+/* package nameing check */
+set[loc] packageNameLocs(start[CompilationUnit] cu) {
+	pnl = {};
+	visit(cu) {
+		case (PackageDec)`<Anno* _> package  <PackageName pn> ;` :
+			pnl += pn@\loc;
+	}
+	return pnl;
+}
+
+set[loc] packageNaming(set[loc] pls) 
+	= ( {} | it + l | loc l <- pls, /[a-z]+(\.[a-zA-Z_][a-zA-Z0-9_]*)*/ !:= readFile(l));
+
+set[Message] warningsForPackageName(set[loc] pnl) 
+  = { warning("This is not proper package name!", l) | l <- pnl};
+
+set[Message] checkPackageName(loc project) {
+	pn = {};
+	for (loc l <- files(project), l.extension == "java") {
+    	pn += packageNameLocs(parse(#start[CompilationUnit], l, allowAmbiguity=true));
+    }
+	return warningsForPackageName(packageNaming(pn));
+}
+
+/* Naming convention for constants */
+set[loc] constantLocs(start[CompilationUnit] cu) {
+	cl = {};
+	visit(cu) {
+		case c:(FieldDec) `static final <Type _> <Id i> = <VarInit vi> ;`:
+				cl += i@\loc;
+		case c:(ConstantDec) `static final <Type _> <Id i> = <VarInit vi> ;` :
+				cl += i@\loc;
+		case c:(FieldDec) `final static <Type _> <Id i> = <VarInit vi>;`:
+				cl += i@\loc;
+		case c:(ConstantDec) `final static <Type _> <Id i> = <VarInit vi> ;` :
+				cl += i@\loc;
+	}
+	return cl;
+}
+
+set[loc] constantNaming(set[loc] cls) 
+  = ( {} | it + l | loc l <- cls, /[A-Z][A-Z0-9]*(_[A-Z0-9]+)*/ := readFile(l));
+
+set[Message] warningsForConstantName(set[loc] ms) 
+  = { warning("Better to keep constant naming convention!", l) | l <- ms  };
+
+set[Message] checkConstantName(loc project) {
+	cn = {};
+	for (loc l <- files(project), l.extension == "java") {
+    	cn += constantLocs(parse(#start[CompilationUnit], l, allowAmbiguity=true));
+    }
+	return warningsForConstantName(constantNaming(cn));
+}
+
+void main() {
+	loc project = |project://jpacman/|;
+	addMessageMarkers(checkConstantName(project));
+	addMessageMarkers(checkPackageName(project));
+	addMessageMarkers(checkStringComp(project));
 }
