@@ -83,7 +83,8 @@ void main() {
   println("Maximum SLOC of jpacman project : <maxSLOC>");
   int sizeSLOC = sumSloc(slocJpacman); // size of jpacman project
   println("Total size of jpacman project: <sizeSLOC> lines");
-  // Since it consists of 2458 LOC, it is ranked as ++ in terms of SIG model.
+  println("According to SIG model, 0-66 KLOC Java project is ranked as ++.");
+  println("so that JPacman project is extremely small.");
   
   sumActualSloc = sumSloc(sloc(jpacmanActual));
   sumTestSloc = sumSloc(sloc(jpacmanTest));
@@ -92,3 +93,16 @@ void main() {
   println("Test Code : <sumTestSloc> lines");
   println("Ratio : <toReal(sumActualSloc) / toReal(sumTestSloc)>"); // ratio between actual code and test code
 }
+
+test bool skippingMulticomments() = 
+	preProcess("test();/* this is
+	' multiple comment
+	' example */") == "test();";
+	
+test bool consecutiveSpace() =
+	preProcess("test();
+	'
+	' 
+	'test();") ==
+	"test();
+	'test();";

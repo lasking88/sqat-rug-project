@@ -79,14 +79,12 @@ set[Message] checkStringComp(loc project) {
 set[loc] packageNameLocs(start[CompilationUnit] cu) {
 	pnl = {};
 	visit(cu) {
-		case (PackageDec)`<Anno* _> package  <PackageName pn> ;` :
-			pnl += pn@\loc;
+		case (PackageDec)`<Anno* _> package <PackageName pn> ;` :
+			if (/[a-z]+(\.[a-zA-Z_][a-zA-Z0-9_]*)*/ !:= "<pn>")
+				pnl += pn@\loc;
 	}
 	return pnl;
 }
-
-set[loc] packageNaming(set[loc] pls) 
-	= ( {} | it + l | loc l <- pls, /[a-z]+(\.[a-zA-Z_][a-zA-Z0-9_]*)*/ !:= readFile(l));
 
 set[Message] warningsForPackageName(set[loc] pnl) 
   = { warning("This is not proper package name!", l) | l <- pnl};
@@ -96,42 +94,71 @@ set[Message] checkPackageName(loc project) {
 	for (loc l <- files(project), l.extension == "java") {
     	pn += packageNameLocs(parse(#start[CompilationUnit], l, allowAmbiguity=true));
     }
-	return warningsForPackageName(packageNaming(pn));
+	return warningsForPackageName(pn);
 }
 
-/* Naming convention for constants */
-set[loc] constantLocs(start[CompilationUnit] cu) {
-	cl = {};
+/* Check empty statement */
+set[loc] emptyStmsLoc(start[CompilationUnit] cu) {
+	esl = {};
 	visit(cu) {
-		case c:(FieldDec) `static final <Type _> <Id i> = <VarInit vi> ;`:
-				cl += i@\loc;
-		case c:(ConstantDec) `static final <Type _> <Id i> = <VarInit vi> ;` :
-				cl += i@\loc;
-		case c:(FieldDec) `final static <Type _> <Id i> = <VarInit vi>;`:
-				cl += i@\loc;
-		case c:(ConstantDec) `final static <Type _> <Id i> = <VarInit vi> ;` :
-				cl += i@\loc;
+		case s:(Stm)`;` : esl += s@\loc; 
 	}
-	return cl;
+	return esl;
 }
 
-set[loc] constantNaming(set[loc] cls) 
-  = ( {} | it + l | loc l <- cls, /[A-Z][A-Z0-9]*(_[A-Z0-9]+)*/ := readFile(l));
+set[Message] warningsForEmptyStms(set[loc] ces) =
+	{ warning("Empty Statement!", l) | l <- ces};
 
-set[Message] warningsForConstantName(set[loc] ms) 
-  = { warning("Better to keep constant naming convention!", l) | l <- ms  };
-
-set[Message] checkConstantName(loc project) {
-	cn = {};
+set[Message] checkEmptyStatement(loc project) {
+	ces = {};
 	for (loc l <- files(project), l.extension == "java") {
-    	cn += constantLocs(parse(#start[CompilationUnit], l, allowAmbiguity=true));
+    	ces += emptyStmsLoc(parse(#start[CompilationUnit], l, allowAmbiguity=true));
     }
-	return warningsForConstantName(constantNaming(cn));
+	return warningsForEmptyStms(ces);
+}
+
+/* Check number of fields in a class */
+set[loc] fieldLocs(start[CompilationUnit] cu, int threshold) {
+	fl = {};
+	visit(cu) {
+		case ClassDec cd :	fl = checkNrMthds(cd, threshold);
+	}
+	return fl;
+}
+
+set[loc] checkNrMthds(ClassDec cd, int threshold) {
+	count = 0;
+	cnm = {};
+	visit(cd) {
+		case FieldDec fd : {
+			cnm += fd@\loc;
+			count += 1;
+		}
+	}
+	if (count <= threshold) cnm = {};
+	return cnm;
+}
+
+set[Message] warningsForNrFields(set[loc] nf, int threshold) =
+	{ warning("This class has more than <threshold> fields!", l) | l <- nf };
+	
+set[Message] checkNrFields(loc project, int threshold) {
+	cnf = {};
+	for (loc l <- files(project), l.extension == "java") {
+    	cnf += fieldLocs(parse(#start[CompilationUnit], l, allowAmbiguity=true), threshold);
+    }
+	return warningsForNrFields(cnf, threshold);
 }
 
 void main() {
 	loc project = |project://jpacman/|;
-	addMessageMarkers(checkConstantName(project));
+	removeMessageMarkers(project);
 	addMessageMarkers(checkPackageName(project));
 	addMessageMarkers(checkStringComp(project));
+	addMessageMarkers(checkEmptyStatement(project));
+	addMessageMarkers(checkNrFields(project, 20));
+	/**
+	 * The message warnings are checked manually by creating example code that viaolates rules
+	 * Jpacman project keeps these implemented rules except for the our own rule when the threshold is lowered.
+	 **/
 }

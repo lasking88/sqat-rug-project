@@ -46,6 +46,7 @@ set[Declaration] jpacmanASTs() = createAstsFromEclipseProject(|project://jpacman
 
 alias CC = rel[loc method, int cc];
 
+// calculate cyclomatic complexity counting forking node
 int calcCC(Statement impl) {
     int result = 1;
     visit (impl) {
@@ -69,9 +70,9 @@ CC cc(set[Declaration] decls) {
   CC result = {};
   visit(decls) {
   	case c:\constructor(_,_,_,Statement s):
-  		result[c.decl] = calcCC(s);
+  		result[c.src] = calcCC(s);
   	case m:\method(_,_,_,_,b:\block):
-  		result[m.decl] = calcCC(b);
+  		result[m.src] = calcCC(b);
   }
   return result;
 }
@@ -102,6 +103,7 @@ map[str,int] getRelSLOC(CC c) {
 void anaylizeASTs(set[Declaration] d) {
 	CC cycloComp = cc(d);
 	CCDist cycloCompDist = ccDist(cycloComp);
+	println("Cyclo complexity distribution : <cycloCompDist>");
 	CC maxCC = getMax(cycloComp);
 	println("Methods with max CC : <maxCC>");
 	int sizeOfJpac = sumSloc(sloc(|project://jpacman/|));
@@ -119,16 +121,54 @@ void anaylizeASTs(set[Declaration] d) {
 	println("Spearman Correlation : <SpearmansCorrelation(ccPerSloc)>");
 }
 
-set[Declaration] getPartialASTs(set[Declaration] project, loc biggerLoc)
-	= ({} | it + d | d <- project, \compilationUnit(_,_,_,src=s) := d, s < biggerLoc);
+set[Declaration] getPartialASTs(set[Declaration] project, str path)
+	= {d| d <- project, /<path>.*/ := d.src.path};
 
 void main() {
 	set[Declaration] d = jpacmanASTs();
+	text(d);
 	println("Jpacman project");
 	anaylizeASTs(d);
-	/* Accoring to the SIG Model, jpacman prject is ranked as ++ */
+	/**
+	 * Accoring to the SIG Model, jpacman prject is ranked as ++ 
+	 * where	moderate	high	very high
+	 *	++ :	25%			0%		0%
+	 *  +  :	30%			5%		0%
+	 *	...
+	 * Pearson correlation r ranges from +1 to -1
+	 * +1 indicates positive relation between two variable
+	 * 0 for no relations, -1 for negative relation
+	 *
+	 * Spearman correlation p ranges from +1 to -1 checking monotonious relation
+	 * +1 indicates monotonically related, otherwise -1
+	 * 
+	 */
 	
 	println("Jpacman project: Actual code");
-	d2 = getPartialASTs(d, |project://jpacman/src/main/java/|);
+	d2 = getPartialASTs(d, |project://jpacman/src/main/java/|.path);
 	anaylizeASTs(d2);
+	
+	println("Jpacman project: Test code");
+	d3 = getPartialASTs(d, |project://jpacman/src/test/java/|.path);
+	anaylizeASTs(d3);
 }
+
+test bool checkCC() =
+	7 == getOneFrom(cc({createAstFromString(|project://tmp|, "
+		'class Test {
+		'	int t = 1;
+		'	void test() {
+		'		if (t == 1) {
+		'			t = 2;
+		'			while (t != 10) t++; 
+		'		}
+		'		for (int i = 0; i \<10; i++)
+		'			t += i;
+		'		try {
+		'			if (t == 1 || t == 10)
+		'				t = \"string\";
+		'			else t = 3.7;
+		'		} catch (Exception e) {}
+		'	}
+		'}
+		'", true)})<1>);
