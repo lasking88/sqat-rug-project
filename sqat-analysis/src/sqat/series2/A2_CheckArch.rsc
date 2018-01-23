@@ -5,6 +5,8 @@ import lang::java::jdt::m3::Core;
 import Message;
 import ParseTree;
 import IO;
+import String;
+import sqat::series2::A1a_StatCov;
 
 
 /*
@@ -66,9 +68,68 @@ set[Message] eval((Dicto)`<Rule* rules>`, M3 m3)
   
 set[Message] eval(Rule rule, M3 m3) {
   set[Message] msgs = {};
-  
-  // to be done
+  switch(rule) {
+  	case (Rule)`<Entity e1> cannot depend <Entity e2>`: {
+  		msgs += check(rule, m3);
+  		break;
+  	}
+  	case (Rule)`<Entity e1> may inherit <Entity e2>`: {
+  		msgs += check(rule, m3);
+  		break;
+  	}
+  	case (Rule)`<Entity e1> must invoke <Entity e2>`: {
+  		msgs += check(rule, m3);
+  		break;
+  	}
+  	default :
+  		println("This is rule is not yet supported!");
+  }
   
   return msgs;
 }
 
+set[Message] check((Rule)`<Entity e1> cannot depend <Entity e2>`, M3 m3) {
+	set[Message] ms = {};
+	dependency = m3.typeDependency;
+	pke1 = replaceAll("<e1>", ".", "/");
+	pke2 = replaceAll("<e2>", ".", "/");
+	ms += { warning("<pke1> cannot depend <pke2>", from) | <from, to> <- dependency, /.*<pke1>.*/ := from.path, /.*<pke2>.*/ := to.path};
+	println(ms);
+	return ms;
+}
+
+set[Message] check((Rule)`<Entity e1> may inherit <Entity e2>`, M3 m3) {
+	set[Message] ms = {};
+	inheritance = m3.extends;
+	inheritance += m3.implements;
+  	solve(inheritance) { inheritance += (inheritance o m3.extends); }
+  	pke1 = replaceAll("<e1>", ".", "/");
+  	pke2 = replaceAll("<e2>", ".", "/");
+  	bool isInherited = false;
+  	for (<from,to> <- inheritance) {
+  		if (/.*<pke1>.*/ := from.path, /.*<pke2>.*/ := to.path) {
+  			isInherited = true;
+  			break;
+  		}
+  	}
+  	if (!isInherited) ms += warning("<pke1> may inherit <pk2>", from);
+  	println(ms);
+  	return ms;
+}
+
+set[Message] check((Rule)`<Entity e1> must invoke <Entity e2>`, M3 m3) {
+	set[Message] ms = {};
+	invocation = m3.methodInvocation;
+	pke1 = replaceAll("<e1>", ".", "/");
+  	pke2 = replaceAll("<e2>", ".", "/");
+  	bool isCalled = false;
+  	for (<from,to> <- inheritance) {
+  		if (/.*<pke1>.*/ := from.path, /.*<pke2>.*/ := to.path) {
+  			isCalled = true;
+  			break;
+  		}
+  	}
+  	if (!isCalled) ms += warning("<pke1> must invoke <pke2>", from);
+  	println(ms);
+  	return ms;
+}

@@ -1,0 +1,27 @@
+nl.tudelft.jpacman.level cannot depend nl.tudelft.jpacman.sprite
+nl.tudelft.jpacman.npc.ghost.Blinky may inherit nl.tudelft.jpacman.npc.NPC
+nl.tudelft.jpacman.PacManUiBuilder::build must invoke nl.tudelft.jpacman.PacManUI
+
+// The reason why these rules are good design is that
+//
+// 1. Graphical user interface is not related to the logic inside of this game
+// which indicates 'good' design based on single responsibility principle.
+// Accroding to this, each package or module would be better to have one responsibility to be 
+// considered as 'good' design.
+// User Interface package is better to have independent module from the game logic based on this.
+// Package level is logic of the game and sprite is GUI package so that it cannot depend on GUI
+//
+// 2. The class "Blinky" extends "NPC". "Blinky" is child class of "Ghost" class.
+// All classes inherited by "Ghost" class have common method and functionality. 
+// According to Liskov principle, "Ghost" class should accpet at least what "NPC" accepts,
+// likewise, "Blinky" should have the same functionality as "Ghost" at least. 
+// Therefore, the sentence indicates `good` design, so the classes do.
+//
+// 3. As use of builder pattern, "PacManUiBuilder" has a method "build" and it takes
+// advantages of generation of "PacManUi" by calling different components that may be used.
+// This is considered as 'good' design principle based on 'open close principle', since 
+// the methods such as addStartButton, addStopButton, or addKeys are made, only what the 
+// programmer has to do is to implement builder by calling the methods. If the programmer needs
+// more components, it can be done easily by creating new method and then applied to where 
+// it is built. In order to check builder pattern, more checks are needed, although this is one
+// of them.

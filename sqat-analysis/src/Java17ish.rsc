@@ -24,7 +24,7 @@ start[CompilationUnit] parseJava(loc l) {
 }
 
 void testOnJPacman() {
-  for (f <- files(|project://jpacman-framework/src|), f.extension == "java") {
+  for (f <- files(|project://jpacman/src|), f.extension == "java") {
     try {
       println("Parsing: <f>");
       parseJava(f);

@@ -152,7 +152,7 @@ set[Message] checkNrFields(loc project, int threshold) {
 
 void main() {
 	loc project = |project://jpacman/|;
-	removeMessageMarkers(project);
+	//removeMessageMarkers(project);
 	addMessageMarkers(checkPackageName(project));
 	addMessageMarkers(checkStringComp(project));
 	addMessageMarkers(checkEmptyStatement(project));
